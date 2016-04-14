@@ -106,8 +106,9 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	intervalStart = as.numeric(min(subGenes[,"TxStart"]))-5000
 	intervalEnd = as.numeric(max(subGenes[,"TxEnd"]))+5000
 	intervalLength = intervalEnd - intervalStart 
-	fastaSeq = get.fasta(x=paste("chr",subGenes[1,"Chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile)
-	fastaSeq = fastaSeq["sequence"][[1]]
+	fastaSeq = capture.output(get.fasta(x=paste("chr",subGenes[1,"Chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile))
+	fastaSeq = substr(fastaSeq[20], regexpr(" ", fastaSeq[20])+1, nchar(fastaSeq[20]))
+
 	if(subGenes[1,"Strand"] == "-"){
 		fastaSeq = toString(complement(DNAString(fastaSeq)))
 	}
@@ -146,8 +147,8 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	  intervalStart = as.numeric(min(subGenes[,"txStart"]))-5000
 	  intervalEnd = as.numeric(max(subGenes[,"txEnd"]))+5000
 	  intervalLength = intervalEnd - intervalStart 
-	  fastaSeq = get.fasta(x=paste("chr",subGenes[1,"chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile)
-	  fastaSeq = fastaSeq["sequence"][[1]]
+	  fastaSeq = capture.output(get.fasta(x=paste("chr",subGenes[1,"Chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile))
+	  fastaSeq = substr(fastaSeq[20], regexpr(" ", fastaSeq[20])+1, nchar(fastaSeq[20]))
 	  if(subGenes[1,"Strand"] == "-"){
 	    fastaSeq = toString(complement(DNAString(fastaSeq)))
 	  }
