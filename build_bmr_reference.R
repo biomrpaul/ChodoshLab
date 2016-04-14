@@ -59,8 +59,7 @@ if(is.null(args$ensl)){
 }
 
 if(args$threads > 1){
-	cl<-makeCluster(args$threads,outfile="")
-	registerDoParallel(cl)
+	registerDoParallel(cores=args$threads)
 	print(paste("Running BMR reference creation in parallel with ", args$threads, " threads.", sep=""))	
 }
 
@@ -436,9 +435,7 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
 	}
 	
 }	
-if(args$threads > 1){
-stopCluster(cl)
-}
+
 ###Debug code
 # prop.table(categ_and_effects,2)[,pos]
 # tmp[,pos]
