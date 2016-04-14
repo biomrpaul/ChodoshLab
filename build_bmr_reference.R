@@ -101,7 +101,6 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   
 	subGenes = transcriptSubset
 	gene = subGenes[1,1]
-	print(gene)
 	##Get total interval of gene
 	intervalStart = as.numeric(min(subGenes[,"TxStart"]))-5000
 	intervalEnd = as.numeric(max(subGenes[,"TxEnd"]))+5000
