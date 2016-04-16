@@ -45,7 +45,7 @@ if(is.null(args$refGene)){
 												 "CodingEnd", "NumExons", "ExonStarts", "ExonEnds")
 	refGene$Chrom = substr(refGene$Chrom, 4, nchar(refGene$Chrom))
 	##Remove non-canonical chromosomes
-	refGene = refGene[which(refGene$Chrom %in% c(1:21, "X", "Y", "M")),]
+	refGene = refGene[which(refGene$Chrom %in% c(1:22, "X", "Y", "M")),]
 }
 
 if(is.null(args$ensl)){
