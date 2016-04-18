@@ -55,7 +55,12 @@ if(is.null(args$ensl)){
 	##Used "mm10_genes_Ensembl2.bed" in first generation
   ensl = read.delim(args$ensl, header=T, stringsAsFactors = F)	
   print(paste("Using ", args$ensl, " as minor gene annotation reference.", sep=""))
-  colnames(ensl)[4] = "Strand"
+  #colnames(ensl)[4] = "Strand"
+  ensl$Chrom = substr(ensl$Chrom, 4, nchar(ensl$Chrom))
+  ##Remove non-canonical chromosomes
+  ensl = ensl[which(ensl$Chrom %in% c(1:22, "X", "Y", "M")),]
+  colnames(ensl) = c("Gene", "Isoform", "Chrom", "Strand", "TxStart", "TxEnd","CodingStart", 
+                        "CodingEnd", "NumExons", "ExonStarts", "ExonEnds")
 }
 
 if(args$threads > 1){
@@ -95,7 +100,7 @@ categ_rows = c(paste(rep("silent",7),c(1:7), sep=""), paste(rep("nonsilent",7),c
 
 logFile = "bmr.reference.log"
 failedLog = "bmr.failed.log"
-
+protein_fail = "protein_noncanonical.log"
 createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   
 	subGenes = transcriptSubset
@@ -104,6 +109,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	intervalStart = as.numeric(min(subGenes[,"TxStart"]))-5000
 	intervalEnd = as.numeric(max(subGenes[,"TxEnd"]))+5000
 	intervalLength = intervalEnd - intervalStart 
+	chrom = subGenes[1,"Chrom"]
 	fastaSeq = capture.output(get.fasta(x=paste("chr",subGenes[1,"Chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile))
 	fastaSeq = substr(fastaSeq[20], regexpr(" ", fastaSeq[20])+1, nchar(fastaSeq[20]))
 
@@ -140,13 +146,18 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		}
 	  
 	}
-	if(all(!switchEnsl)){
+	if(all(switchEnsl)){
 		correctCoding = rep(F, numGenes)
-	  subGenes = ensl[which(ensl$name2 == gene),]
-	 
+	  subGenes = ensl[which(ensl$Gene == gene),]
+    subGenes = subGenes[which(((subGenes$TxStart >= intervalStart & subGenes$TxStart <= intervalEnd) | (subGenes$TxEnd >= intervalStart & subGenes$TxEnd <= intervalEnd))  & subGenes$Chrom == chrom),]
+              
+	  if(nrow(subGenes) == 0){
+	    write(paste("Nonsense transcripts in main, no transcripts in minor: ", gene, ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 
+	    return(NULL)
+	  }
 	  ##Get total interval of gene
-	  intervalStart = as.numeric(min(subGenes[,"txStart"]))-5000
-	  intervalEnd = as.numeric(max(subGenes[,"txEnd"]))+5000
+	  intervalStart = as.numeric(min(subGenes[,"TxStart"]))-5000
+	  intervalEnd = as.numeric(max(subGenes[,"TxEnd"]))+5000
 	  intervalLength = intervalEnd - intervalStart 
 	  fastaSeq = capture.output(get.fasta(x=paste("chr",subGenes[1,"Chrom"],":",intervalStart-1,"-",intervalEnd+1,sep=""),fasta=fastaFile))
 	  fastaSeq = substr(fastaSeq[20], regexpr(" ", fastaSeq[20])+1, nchar(fastaSeq[20]))
@@ -163,17 +174,17 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	    subGene = subGenes[row,]
 	    ###Define coding and noncoding regions
 
-	    starts = as.numeric(strsplit(subGene[,"exonStarts"],",")[[1]])+1
-	    ends = as.numeric(strsplit(subGene[,"exonEnds"],",")[[1]])
+	    starts = as.numeric(strsplit(subGene[,"ExonStarts"],",")[[1]])+1
+	    ends = as.numeric(strsplit(subGene[,"ExonEnds"],",")[[1]])
 	    
 	    
 	    coding_bool = matrix(0, 1, intervalLength)
 	    names(coding_bool) = (intervalStart+1):intervalEnd
 	    sumbp = 0
-	    for(i in 1:as.numeric(subGene[,"exonCount"])){
+	    for(i in 1:as.numeric(subGene[,"NumExons"])){
 	      
 	      bps = starts[i]:ends[i]
-	      bps = bps[which(bps > as.numeric(subGene[,"cdsStart"]) & bps <= as.numeric(subGene[,"cdsEnd"]))]
+	      bps = bps[which(bps > as.numeric(subGene[,"CodingStart"]) & bps <= as.numeric(subGene[,"CodingEnd"]))]
 	      sumbp = sumbp + length(bps)
 	      coding_bool[as.character(bps)] = 1
 	    } 
@@ -183,7 +194,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	    }
 	  }
 	  if(all(!correctCoding)){
-	  	write(paste("No transcripts with coding basepairs divisible by 3: ", gene, sep=""), append=failedLog) 	
+	  	write(paste("No transcripts with coding basepairs divisible by 3:", gene,ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 	
 	  	return(NULL)
 	  }else{
 	    subGenes = subGenes[which(correctCoding),,drop=F]	
@@ -374,6 +385,11 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				}
 			}
 		}
+		
+		if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
+		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], protein, paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
+		}
+		print(protein[seq(1,length(protein),3)])
 		##for(pos in coding_nucs){
 		
 		#categ_and_effects = prop.table(categ_and_effects,2)
@@ -399,20 +415,18 @@ if(is.null(ambiguousGeneNumber)){
 
 }
 
-intervalLength = matrix(NA, length(genes_to_run), 2)
-rownames(intervalLength) = genes_to_run
-#for(gene in genes_to_run){
 
-results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
+for(gene_index in 1:length(genes_to_run)){
+
+#results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
 		write(paste("Gene not present in gene annotation: ", gene, sep=""), file=failedLog, append=T)	
-		return(NULL)
+		next
+	#  return(NULL)
 	}
-	
-	intervalLength[gene,] = c(gene, max(subGenes$TxEnd) - min(subGenes$TxStart))
 
 	###See if there is ambiguous gene annotations, that is that transcripts do not overlap 
 	###and are located on different parts of the genoem
