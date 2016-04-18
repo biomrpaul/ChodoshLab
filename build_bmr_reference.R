@@ -115,7 +115,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	colnames(coding_bools) = (intervalStart+1):intervalEnd
 	firstPass = TRUE
 	numGenes = nrow(subGenes)
-	switchEnsl = F
+	switchEnsl = rep(F, numGenes)
 	for(row in 1:numGenes){
 		subGene = subGenes[row,]
 		###Define coding and noncoding regions
@@ -134,11 +134,14 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			coding_bool[as.character(bps)] = 1
 		} 
 		coding_bools[row,] = coding_bool
+
 		if(length(which(coding_bool == 1)) %% 3 != 0){
-		  switchEnsl = T
+		  switchEnsl[row] = T
 		}
+	  
 	}
-	if(switchEnsl){
+	if(all(!switchEnsl)){
+		correctCoding = rep(F, numGenes)
 	  subGenes = ensl[which(ensl$name2 == gene),]
 	 
 	  ##Get total interval of gene
@@ -175,19 +178,31 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	      coding_bool[as.character(bps)] = 1
 	    } 
 	    coding_bools[row,] = coding_bool
-	
+	    if(length(which(coding_bool == 1)) %% 3 == 0){
+	    	correctCoding[row] = T
+	    }
+	  }
+	  if(all(!correctCoding)){
+	  	write(paste("No transcripts with coding basepairs divisible by 3: ", gene, sep=""), append=failedLog) 	
+	  	return(NULL)
+	  }else{
+	    subGenes = subGenes[which(correctCoding),,drop=F]	
+	  	coding_bools = coding_bools[which(correctCoding),,drop=F]
 	  }
 	  
+	}else{
+		subGenes = subGenes[which(!switchEnsl),,drop=F]	
+		coding_bools = coding_bools[which(!switchEnsl),,drop=F]
 	}
 	
 	pos_sums = colSums(coding_bools)
-	ambiguous_positions = colnames(coding_bools)[which(pos_sums != 0 & pos_sums != numGenes)]
+	ambiguous_positions = colnames(coding_bools)[which(pos_sums != 0 & pos_sums != nrow(coding_bools))]
 	
 	###Get background mutation possibilites for each transcripts
 	
   bmrs = list()
 
-	for(row in 1:numGenes){
+	for(row in 1:nrow(subGenes)){
 		
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
@@ -375,7 +390,7 @@ for(ambi_pos in ambiguous_positions){
 	final[,ambi_pos] = bmrs[[to_convert]][,ambi_pos]
 
 }
-test = paste(gene,".bmr.csv", sep="")
+
 if(is.null(ambiguousGeneNumber)){
 	write.table(final, file=paste(gene,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
 }else{
@@ -420,7 +435,7 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
   		
   		if(!found){
   			positions[[length(positions)+1]] = transcript
-  			print(gene)
+  			
   		}
   	}
 	}
