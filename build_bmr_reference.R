@@ -101,6 +101,7 @@ categ_rows = c(paste(rep("silent",7),c(1:7), sep=""), paste(rep("nonsilent",7),c
 logFile = "bmr.reference.log"
 failedLog = "bmr.failed.log"
 protein_fail = "protein_noncanonical.log"
+
 createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   
 	subGenes = transcriptSubset
@@ -128,17 +129,17 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		codingStart = as.numeric(subGene[,"CodingStart"])+1
 		starts = as.numeric(strsplit(subGene[,"ExonStarts"],",")[[1]])+1
 		ends = as.numeric(strsplit(subGene[,"ExonEnds"],",")[[1]])
-	 
 		coding_bool = matrix(0, 1, intervalLength)
 		names(coding_bool) = (intervalStart+1):intervalEnd
-	  sumbp = 0
+	
 		for(i in 1:as.numeric(subGene[,"NumExons"])){
 			
 			bps = starts[i]:ends[i]
 			bps = bps[which(bps > as.numeric(subGene[,"CodingStart"]) & bps <= as.numeric(subGene[,"CodingEnd"]))]
-			sumbp = sumbp + length(bps)
+			
 			coding_bool[as.character(bps)] = 1
 		} 
+	 
 		coding_bools[row,] = coding_bool
 
 		if(length(which(coding_bool == 1)) %% 3 != 0){
@@ -217,6 +218,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
+
 		coding_seq = paste(strsplit(fastaSeq, "")[[1]][which(coding_bool == 1)+1],collapse="")
 		coding_seq_index = toupper(strsplit(fastaSeq, "")[[1]][which(coding_bool == 1)+1])
 		names(coding_seq_index) = names(coding_bool)[which(coding_bool == 1)]
@@ -387,12 +389,10 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		}
 		
 		if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
-		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], protein, paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
+		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
 		}
-		print(protein[seq(1,length(protein),3)])
-		##for(pos in coding_nucs){
 		
-		#categ_and_effects = prop.table(categ_and_effects,2)
+
 		categ_and_effects["silent7",] = colSums(categ_and_effects[1:6,])
 		categ_and_effects["nonsilent7",] = colSums(categ_and_effects[8:13,])
 		categ_and_effects["noncoding7",] = colSums(categ_and_effects[15:20,])
@@ -416,16 +416,16 @@ if(is.null(ambiguousGeneNumber)){
 }
 
 
-for(gene_index in 1:length(genes_to_run)){
+#for(gene_index in 1:length(genes_to_run)){
 
-#results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
+results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
 		write(paste("Gene not present in gene annotation: ", gene, sep=""), file=failedLog, append=T)	
-		next
-	#  return(NULL)
+		#next
+	  return(NULL)
 	}
 
 	###See if there is ambiguous gene annotations, that is that transcripts do not overlap 
