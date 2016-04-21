@@ -38,7 +38,7 @@ if(is.null(args$refGene)){
 	print("Reference major gene annotation file not given. Aborting")
 	quit()
 }else{
-	##In first pass, used "mm10_mutated_genes_refGene_new.txt"
+	
 	refGene = read.delim(args$refGene, header=T, stringsAsFactors = F)
 	print(paste("Using ", args$refGene, " as major gene annotation reference.", sep=""))
 	colnames(refGene)  = c("Gene", "Isoform", "Chrom", "Strand", "TxStart", "TxEnd","CodingStart", 
@@ -233,7 +233,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
      #fastaSeq2 = c()
 		if(subGene[,"Strand"] == "+"){
 			coding_index = 1
-			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(colnames(coding_bool) %in% ambiguous_positions)}
+			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
 			for(index in to_compute){
 			  #print(index)
 
@@ -310,10 +310,13 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			}
 			
 		}else{ ##Sequence is - strand
+			
 			coding_index = 1
-			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(colnames(coding_bool) %in% ambiguous_positions)}
+			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
+		
+			if(all(coding_bool[to_compute] == 0)){next}
 			for(index in to_compute){
-				#print(index)
+			
 				
 				###Get Sequence context to detemine if CpG
 				locus = ""
@@ -387,7 +390,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				}
 			}
 		}
-		
+	
 		if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
 		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
 		}
@@ -420,6 +423,7 @@ if(is.null(ambiguousGeneNumber)){
 
 results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
+	
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
@@ -459,6 +463,7 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
 		createBMR(subGenes)
 	}else{
 		for(ambigNum in 1:length(positions)){
+			
 	  	createBMR(positions[[ambigNum]], ambigNum)
 		}
 	}
