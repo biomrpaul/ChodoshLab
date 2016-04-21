@@ -215,7 +215,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   bmrs = list()
 
 	for(row in 1:nrow(subGenes)){
-		print(row)
+	
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
 
@@ -235,7 +235,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			coding_index = 1
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
 			for(index in to_compute){
-			  print(index)
+			 
 
 				locus = ""
 				nuc = nucs[index+1]
@@ -422,17 +422,17 @@ if(is.null(ambiguousGeneNumber)){
 }
 
 
-for(gene_index in 1:length(genes_to_run)){
+#for(gene_index in 1:length(genes_to_run)){
 
-#results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
+results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
-	print(gene)
+	
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
 		write(paste("Gene not present in gene annotation: ", gene, sep=""), file=failedLog, append=T)	
-		next
-	  #return(NULL)
+		#next
+	  return(NULL)
 	}
 
 	###See if there is ambiguous gene annotations, that is that transcripts do not overlap 
