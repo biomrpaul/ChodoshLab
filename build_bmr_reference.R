@@ -103,7 +103,7 @@ failedLog = "bmr.failed.log"
 protein_fail = "protein_noncanonical.log"
 
 createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
-  
+
 	subGenes = transcriptSubset
 	gene = subGenes[1,1]
 	##Get total interval of gene
@@ -124,6 +124,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	numGenes = nrow(subGenes)
 	switchEnsl = rep(F, numGenes)
 	for(row in 1:numGenes){
+	
 		subGene = subGenes[row,]
 		###Define coding and noncoding regions
 		codingStart = as.numeric(subGene[,"CodingStart"])+1
@@ -198,15 +199,17 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	  	write(paste("No transcripts with coding basepairs divisible by 3:", gene,ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 	
 	  	return(NULL)
 	  }else{
+	  	
 	    subGenes = subGenes[which(correctCoding),,drop=F]	
 	  	coding_bools = coding_bools[which(correctCoding),,drop=F]
 	  }
 	  
 	}else{
+		
 		subGenes = subGenes[which(!switchEnsl),,drop=F]	
 		coding_bools = coding_bools[which(!switchEnsl),,drop=F]
 	}
-	
+
 	pos_sums = colSums(coding_bools)
 	ambiguous_positions = colnames(coding_bools)[which(pos_sums != 0 & pos_sums != nrow(coding_bools))]
 	
@@ -215,7 +218,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   bmrs = list()
 
 	for(row in 1:nrow(subGenes)){
-	
+	 
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
 
@@ -231,12 +234,14 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		codon_positions = rep(c(1,2,3),length(which(coding_bool == 1)) / 3)
 		protein = c()
      #fastaSeq2 = c()
+
 		if(subGene[,"Strand"] == "+"){
 			coding_index = 1
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
+			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
+				next}
+			
 			for(index in to_compute){
-			 
-
 				locus = ""
 				nuc = nucs[index+1]
 				if(nuc == "C"){
@@ -313,11 +318,13 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			}
 			
 		}else{ ##Sequence is - strand
-			
+		
 			coding_index = 1
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
-		
-			if(all(coding_bool[to_compute] == 0)){next}
+
+			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
+				next}
+
 			for(index in to_compute){
 			
 				
@@ -393,12 +400,12 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				}
 			}
 		}
-	  if(row == 1){
-		if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
-		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
-		}
+	  if(row == 1 & length(which(coding_bool == 1)) > 0){
+	  	if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
+	  		write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
+	  	}
 	  }
-
+ 
 		categ_and_effects["silent7",] = colSums(categ_and_effects[1:6,])
 		categ_and_effects["nonsilent7",] = colSums(categ_and_effects[8:13,])
 		categ_and_effects["noncoding7",] = colSums(categ_and_effects[15:20,])
@@ -412,7 +419,9 @@ for(ambi_pos in ambiguous_positions){
 	final[,ambi_pos] = bmrs[[to_convert]][,ambi_pos]
 
 }
-
+if(all(colSums(final[1:14,]) == 0)){
+	write(paste("No sense protein regions found: ", gene, sep=""), file=protein_fail, append=T)
+}
 if(is.null(ambiguousGeneNumber)){
 	write.table(final, file=paste(gene,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
 }else{
@@ -473,20 +482,3 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
 	
 }	
 
-###Debug code
-# prop.table(categ_and_effects,2)[,pos]
-# tmp[,pos]
-# pos = "69586891"
-# pos = as.character(as.numeric(pos) + 1)
-# pos = "69579918"
-# colSums(categ_and_effects)[pos]
-# categ_and_effects[,pos]
-# 
-# categ_and_effects[,pos] = categ_and_effects[,pos] / sum(categ_and_effects[,pos])
-# 
-# get.fasta(x=paste(subGene[,"Chrom"],":",6958689,"-",69586893,sep=""),fasta=fastaFile)
-# 
-# fastaSeq = get.fasta(x=paste(subGene[,"Chrom"],":",intervalStart,"-",intervalEnd,sep=""),fasta=fastaFile)
-# fastaSeq = fastaSeq["sequence"][[1]]
-# substr(fastaSeq,69586891-intervalStart, 69586890-intervalStart+3)
-# strsplit(fastaSeq, "")[[1]][(69586891-intervalStart):(69586890-intervalStart+3)]
