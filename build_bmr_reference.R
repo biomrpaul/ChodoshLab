@@ -154,9 +154,9 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		correctCoding = rep(F, numGenes)
 	  subGenes = ensl[which(ensl$Gene == gene),]
     subGenes = subGenes[which(((subGenes$TxStart >= intervalStart & subGenes$TxStart <= intervalEnd) | (subGenes$TxEnd >= intervalStart & subGenes$TxEnd <= intervalEnd))  & subGenes$Chrom == chrom),]
-           
+    subGenes = subGenes[which(subGenes$CodingEnd - subGenes$CodingStart > 0),]
 	  if(nrow(subGenes) == 0){
-	    write(paste("Nonsense transcripts in main, no transcripts in minor: ", gene, ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 
+	    write(paste("Nonsense transcripts in main, no coding transcripts in minor: ", gene, ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 
 
 	  	return(NULL)
 	  }
@@ -426,7 +426,8 @@ for(ambi_pos in ambiguous_positions){
 
 }
 if(all(colSums(final[1:14,]) == 0)){
-	write(paste("No sense protein regions found: ", gene," ",ambiguousGeneNumber, sep=""), file=protein_fail, append=T)
+	write(paste("No sense protein regions found:\t", gene,"\t",ambiguousGeneNumber, sep=""), file=failedLog, append=T)
+	return(NULL)
 }
 if(is.null(ambiguousGeneNumber)){
 	write.table(final, file=paste(gene,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
@@ -451,7 +452,7 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
 	}
 	subGenes = subGenes[which(subGenes$CodingEnd - subGenes$CodingStart > 0),]
 	if(nrow(subGenes) == 0){
-		write(paste("No coding regions detected: ", gene, sep=""), file=failedLog, append=T)	
+		write(paste("No coding regions detected in annotation: ", gene, sep=""), file=failedLog, append=T)	
 		#next
 		return(NULL)
 	}
