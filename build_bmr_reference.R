@@ -43,9 +43,11 @@ if(is.null(args$refGene)){
 	print(paste("Using ", args$refGene, " as major gene annotation reference.", sep=""))
 	colnames(refGene)  = c("Gene", "Isoform", "Chrom", "Strand", "TxStart", "TxEnd","CodingStart", 
 												 "CodingEnd", "NumExons", "ExonStarts", "ExonEnds")
+	
 	refGene$Chrom = substr(refGene$Chrom, 4, nchar(refGene$Chrom))
 	##Remove non-canonical chromosomes
 	refGene = refGene[which(refGene$Chrom %in% c(1:22, "X", "Y", "M")),]
+	##Only keep transcript that specify coding regions
 }
 
 if(is.null(args$ensl)){
@@ -152,10 +154,11 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		correctCoding = rep(F, numGenes)
 	  subGenes = ensl[which(ensl$Gene == gene),]
     subGenes = subGenes[which(((subGenes$TxStart >= intervalStart & subGenes$TxStart <= intervalEnd) | (subGenes$TxEnd >= intervalStart & subGenes$TxEnd <= intervalEnd))  & subGenes$Chrom == chrom),]
-              
+           
 	  if(nrow(subGenes) == 0){
 	    write(paste("Nonsense transcripts in main, no transcripts in minor: ", gene, ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 
-	    return(NULL)
+	    print("yup")
+	  	return(NULL)
 	  }
 	  ##Get total interval of gene
 	  intervalStart = as.numeric(min(subGenes[,"TxStart"]))-5000
@@ -420,7 +423,7 @@ for(ambi_pos in ambiguous_positions){
 
 }
 if(all(colSums(final[1:14,]) == 0)){
-	write(paste("No sense protein regions found: ", gene, sep=""), file=protein_fail, append=T)
+	write(paste("No sense protein regions found: ", gene," ",ambiguousGeneNumber, sep=""), file=protein_fail, append=T)
 }
 if(is.null(ambiguousGeneNumber)){
 	write.table(final, file=paste(gene,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
@@ -439,10 +442,17 @@ results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Bios
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
-		write(paste("Gene not present in gene annotation: ", gene, sep=""), file=failedLog, append=T)	
+		write(paste("Gene not present in gene annotation (possibly due to noncanonical chromosome): ", gene, sep=""), file=failedLog, append=T)	
 		#next
 	  return(NULL)
 	}
+	subGenes = subGenes[which(subGenes$CodingEnd - subGenes$CodingStart > 0),]
+	if(nrow(subGenes) == 0){
+		write(paste("No coding regions detected: ", gene, sep=""), file=failedLog, append=T)	
+		#next
+		return(NULL)
+	}
+	
 
 	###See if there is ambiguous gene annotations, that is that transcripts do not overlap 
 	###and are located on different parts of the genoem
