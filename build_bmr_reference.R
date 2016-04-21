@@ -157,7 +157,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
            
 	  if(nrow(subGenes) == 0){
 	    write(paste("Nonsense transcripts in main, no transcripts in minor: ", gene, ambiguousGeneNumber, sep=" "), file=failedLog, append=T) 
-	    print("yup")
+
 	  	return(NULL)
 	  }
 	  ##Get total interval of gene
@@ -219,7 +219,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 	###Get background mutation possibilites for each transcripts
 	
   bmrs = list()
-
+  kept = c()
 	for(row in 1:nrow(subGenes)){
 	 
 		subGene = subGenes[row,]
@@ -242,7 +242,8 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			coding_index = 1
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
 			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
-				next}
+				next
+			  }else{kept = c(kept, row)}
 			
 			for(index in to_compute){
 				locus = ""
@@ -326,7 +327,8 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
 
 			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
-				next}
+				next
+				}else{kept = c(kept, row)}
 
 			for(index in to_compute){
 			
@@ -418,7 +420,8 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 
 final = bmrs[[1]]
 for(ambi_pos in ambiguous_positions){
-	to_convert = min(which(coding_bools[,ambi_pos] == 1))
+	to_convert = min(which(coding_bools[kept,ambi_pos] == 1))
+
 	final[,ambi_pos] = bmrs[[to_convert]][,ambi_pos]
 
 }
@@ -435,10 +438,10 @@ if(is.null(ambiguousGeneNumber)){
 
 
 #for(gene_index in 1:length(genes_to_run)){
-
+  
 results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
-	
+	print(gene)
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
