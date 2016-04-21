@@ -215,7 +215,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
   bmrs = list()
 
 	for(row in 1:nrow(subGenes)){
-		
+		print(row)
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
 
@@ -235,7 +235,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 			coding_index = 1
 			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
 			for(index in to_compute){
-			  #print(index)
+			  print(index)
 
 				locus = ""
 				nuc = nucs[index+1]
@@ -253,8 +253,11 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				if(coding_bool[index] == 1){### This means that the effect is either silent or nonsilent (not noncoding)
 					##Index of nucleotide along coding sequence
 					#nuc_index = which(names(coding_seq_index) == pos)
-					if(row != 1){nuc_index = which(names(coding_seq_index) == colnames(coding_bool)[index])}else{nuc_index = coding_index
-					coding_index = coding_index + 1}
+					if(row != 1){
+						nuc_index = which(names(coding_seq_index) == names(coding_bool)[index])
+						}else{
+							nuc_index = coding_index
+					   coding_index = coding_index + 1}
 					#fastaSeq2 = c(fastaSeq2, nuc)
 					##Nucleotide position within codon
 					codon_pos = codon_positions[nuc_index]
@@ -335,7 +338,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				
 				if(coding_bool[index] == 1){### This means that the effect is either silent or nonsilent (not noncoding)
 					##Index of nucleotide along coding sequence
-					if(row != 1){nuc_index = which(names(coding_seq_index) == colnames(coding_bool)[index])}else{nuc_index = coding_index
+					if(row != 1){nuc_index = which(names(coding_seq_index) == names(coding_bool)[index])}else{nuc_index = coding_index
 					     coding_index = coding_index + 1}
 					
 					#fastaSeq2 = c(fastaSeq2, nuc)
@@ -390,11 +393,11 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				}
 			}
 		}
-	
+	  if(row == 1){
 		if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
 		  write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
 		}
-		
+	  }
 
 		categ_and_effects["silent7",] = colSums(categ_and_effects[1:6,])
 		categ_and_effects["nonsilent7",] = colSums(categ_and_effects[8:13,])
@@ -419,17 +422,17 @@ if(is.null(ambiguousGeneNumber)){
 }
 
 
-#for(gene_index in 1:length(genes_to_run)){
+for(gene_index in 1:length(genes_to_run)){
 
-results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
+#results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
-	
+	print(gene)
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
 		write(paste("Gene not present in gene annotation: ", gene, sep=""), file=failedLog, append=T)	
-		#next
-	  return(NULL)
+		next
+	  #return(NULL)
 	}
 
 	###See if there is ambiguous gene annotations, that is that transcripts do not overlap 
