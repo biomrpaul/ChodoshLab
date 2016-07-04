@@ -5,13 +5,13 @@ suppressPackageStartupMessages(library(optparse))
 help_text = "\nThis R script builds a coverage table from bed files that described hicoverage interval within bmr references (gene intervals)."  
 option_list <- list(
 	make_option(c("-T", "--threads"), type="integer", default=1,
-							help="Number of threads for gene BMR reference creation. BMR reference creation is time intensive. Running in parallel is suggested."),
+							help="Number of threads for gene BMR reference creation. BMR reference creation is time instensive. Running in parallel is suggested."),
 	
 	make_option(c("-G","--geneSubset"),type="character", default=NULL,
 							help = "Required parameter used to provide a file specifying a list of genes for which to build the coverage table."),
 
 	make_option(c("-B","--bmrBeds"),type="character", default=NULL,
-							help = "Directory of beds overlapping gene intervals as defined by BMR references."),
+							help = "Directory of beds overlapping hg19 gene intervals as defined by BMR references."),
 	
 	make_option(c("-S","--sampleSubset"),type="character", default=NULL,
 							help = "Optional parameter used to provide a file specifying subset of samples for which to create coverage table. Otherwise will use all samples provided in bmrBeds."),
@@ -49,36 +49,10 @@ if(is.null(args$bmrBeds)){
 	
 	print("No BMR bed file provided. Aborting")
 	quit()
+
 }else{
 	print(paste("Creating coverage table using the bmr beds specified in ", args$bmrBeds,".", sep=""))
-# 	all_samps = list.files(path = args$bmrBeds, pattern = "*.hg19_covered.bps.bed")
-#   
-# 	if(!is.null(args$sampleSubset)){
-# 		print(paste("Creating coverage table using samples specified in", args$geneSubset,".", sep=""))
-# 		samps = read.delim(args$sampleSubset, header=F, stringsAsFactors = F)[,1]
-# 		samps = samps[which(paste(samps,".hg19_covered.bps.bed",sep="") %in% all_samps)]
-# 	}else{samps = substr(all_samps, 1, nchar(all_samps)-21)}
-# 	
-# 	if(length(samps) == 0){
-# 		print('No bmr bed files ending with ".hg19_covered.bps.bed" were provided. Aborting')
-# 		quit()
-# 	}
-# 	samp_covs = list()
-# 	samp_index = 1
-# 	for(samp in samps){
-# 		print(paste("Reading bmr bed file: ", samp_index, " of ", length(samps),sep=''))
-# 		samp_index = samp_index + 1
-# 		samp_covs[[length(samp_covs)+1]] = read.delim(paste(args$bmrBeds,"/",samp,".hg19_covered.bps.bed",sep=""), header=F, stringsAsFactors = F)
-# 	}
-	
-# 	covs <- foreach (samp_index=1:length(samps), .combine = rbind) %dopar% {
-# 	
-# 		samp = samps[samp_index]
-# 		print(paste("Reading bmr bed file: ", samp_index, " of ", length(samps),sep=''))
-# 		samp_index = samp_index + 1
-# 		intervals = read.delim(paste(args$bmrBeds,"/",samp,".hg19_covered.bps.bed",sep=""), header=F, stringsAsFactors = F)
-# 		cbind(rep(samp, nrow(intervals)), intervals, intervals[,4])
-# 	}
+}
 	write("Started reading.", file="pull_coverage.log", append=T)
 
 	covs = read.delim(args$bmrBeds,header=F, stringsAsFactors = F)
@@ -91,25 +65,6 @@ if(is.null(args$bmrBeds)){
 	covs = covs[genes_considered[which(genes_considered %in% names(covs))]]
 
 
-# 	samp_covs <- foreach (samp_index=1:length(samps)) %dopar% {
-# 		
-# 		samp = samps[samp_index]
-# 		print(paste("Reading bmr bed file: ", samp_index, " of ", length(samps),sep=''))
-# 		samp_index = samp_index + 1
-# 		intervals = read.delim(paste(args$bmrBeds,"/",samp,".hg19_covered.bps.bed",sep=""), header=F, stringsAsFactors = F)
-# 		intervals
-# 	}
-# 	names(samp_covs) =  samps
-	
-# 	samp_covs = list()
-# 	for(samp in samps){
-# 		samp_covs[[length(samp_covs)+1]] = covs[which(covs[,1] == samp),2:5]
-# 	}
-# 	samp_covs = split(data.frame(covs), covs[,1])
-# 	covs = NULL
-	
-	#print("Finished reading bed files")
-}
 
 #### Order of rows from BMRs
 ## silent:1-7
@@ -144,22 +99,24 @@ results <- foreach (gene_cov=covs, .combine = rbind) %dopar% {
 
 	if(is.na(gene)){print(gene_cov)}
 	gene_index = which(gene == gene_names)
-	if(gene_index %% 3 == 0){print(paste("Starting gene: ", gene_index, " of ", length(gene_names)," at time ", Sys.time(), ".",sep=""))
+	if(gene_index %% 50 == 0){print(paste("Starting gene: ", gene_index, " of ", length(gene_names)," at time ", Sys.time(), ".",sep=""))
 		write(paste("Starting gene: ", gene_index, " of ", length(gene_names)," at time ", Sys.time(), ".",sep=""), file="pull_coverage.log", append=T)}
 	#print(gene)
-	#write(gene, file="pull_coverage.log", append=T)
+	write(gene, file="pull_coverage.log", append=T)
 	samp_covs = split(data.frame(gene_cov), gene_cov[,4])
+	#test = "mm10_bmr_references"
 	gene_bmrFile <- tryCatch({readLines(paste(args$bmrRefs,"/",gene,".bmr",sep=""))},
 													 error=function(cond){
 													 	message(paste("BMR not present: ",gene, sep=""))
 													 	return(NULL)
-													 	}, 
-													 warning=function(cond){
-													 	message(paste("BMR not present: ",gene, sep=""))
-													 	return(NULL)
 													 	})
 	if(is.na(gene_bmrFile[1])){ return(NULL)}
-
+  if(length(gene_bmrFile) != 22){ 
+    write(gene, file="bmr_error_file.log", append=T)
+    return(NULL)
+    #next
+  }
+     
 	cover_per_tumor = matrix(0, nrow=21, ncol=length(samps))
 	rownames(cover_per_tumor) = paste(rep(gene,21), categs, sep=":")
 	colnames(cover_per_tumor) = samps
@@ -178,7 +135,9 @@ results <- foreach (gene_cov=covs, .combine = rbind) %dopar% {
 			next
 		}
 		starts = as.numeric(sub_cov[,2])-gene_interval[1]+1
+		starts[starts < 1] = 1
 		ends = as.numeric(sub_cov[,3])-gene_interval[1]
+		ends[ends > ncol(gene_bmr)] = ncol(gene_bmr)
 		cover_per_tumor[,samp] = rowSums(gene_bmr[,unlist(mapply(seq, starts,ends)), drop=F])
 	}
    cover_per_tumor

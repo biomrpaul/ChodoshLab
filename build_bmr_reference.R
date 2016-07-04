@@ -215,13 +215,15 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 
 	pos_sums = colSums(coding_bools)
 	ambiguous_positions = colnames(coding_bools)[which(pos_sums != 0 & pos_sums != nrow(coding_bools))]
-	
+	coding_sizes = rowSums(coding_bools)
+	largest_coding = which(coding_sizes == max(coding_sizes))[1]
 	###Get background mutation possibilites for each transcripts
 	
   bmrs = list()
   kept = c()
 	for(row in 1:nrow(subGenes)){
 	 
+	  print(row)
 		subGene = subGenes[row,]
     coding_bool = coding_bools[row,]
 
@@ -240,7 +242,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 
 		if(subGene[,"Strand"] == "+"){
 			coding_index = 1
-			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
+			if(row ==  largest_coding){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool[which(coding_bool == 1)]) %in% ambiguous_positions)}
 			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
 				next
 			  }else{kept = c(kept, row)}
@@ -262,7 +264,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				if(coding_bool[index] == 1){### This means that the effect is either silent or nonsilent (not noncoding)
 					##Index of nucleotide along coding sequence
 					#nuc_index = which(names(coding_seq_index) == pos)
-					if(row != 1){
+					if(row != largest_coding){
 						nuc_index = which(names(coding_seq_index) == names(coding_bool)[index])
 						}else{
 							nuc_index = coding_index
@@ -324,14 +326,16 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 		}else{ ##Sequence is - strand
 		
 			coding_index = 1
-			if(row ==  1){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool) %in% ambiguous_positions)}
+			if(row == largest_coding){to_compute = 1:(intervalLength)}else{to_compute = which(names(coding_bool[which(coding_bool == 1)]) %in% ambiguous_positions)}
 
 			if(all(coding_bool[to_compute] == 0 & length(bmrs) > 0)){
 				next
 				}else{kept = c(kept, row)}
-
+      print(length(to_compute))
+      count = 0
 			for(index in to_compute){
-			
+			  count = count + 1
+			  if(count %% 10000 == 0){print(paste("Index: ", count, sep=""))}
 				
 				###Get Sequence context to detemine if CpG
 				locus = ""
@@ -350,7 +354,7 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				
 				if(coding_bool[index] == 1){### This means that the effect is either silent or nonsilent (not noncoding)
 					##Index of nucleotide along coding sequence
-					if(row != 1){nuc_index = which(names(coding_seq_index) == names(coding_bool)[index])}else{nuc_index = coding_index
+					if(row != largest_coding){nuc_index = which(names(coding_seq_index) == names(coding_bool)[index])}else{nuc_index = coding_index
 					     coding_index = coding_index + 1}
 					
 					#fastaSeq2 = c(fastaSeq2, nuc)
@@ -405,34 +409,39 @@ createBMR <- function(transcriptSubset, ambiguousGeneNumber=NULL){
 				}
 			}
 		}
-	  if(row == 1 & length(which(coding_bool == 1)) > 0){
+	  if(row == largest_coding & length(which(coding_bool == 1)) > 0){
 	  	if( !(protein[1] %in% c("Stop","M")) | !(protein[length(protein)] %in% c("Stop","M")) ){
 	  		write(paste(gene, subGene[,"Isoform"],subGene[,"Strand"], paste(protein[seq(1,length(protein),3)],collapse=""), paste("ambig",ambiguousGeneNumber,sep=""), sep="\t"), file=protein_fail, append=T)
 	  	}
 	  }
- 
+    print(row)
 		categ_and_effects["silent7",] = colSums(categ_and_effects[1:6,])
 		categ_and_effects["nonsilent7",] = colSums(categ_and_effects[8:13,])
 		categ_and_effects["noncoding7",] = colSums(categ_and_effects[15:20,])
 		bmrs[[length(bmrs)+1]] = categ_and_effects
 	
 	}	
-
-final = bmrs[[1]]
+  
+coding_bools = coding_bools[kept,,drop=F]
+largest_coding = which(rowSums(coding_bools) == max(rowSums(coding_bools)))[1]
+final = bmrs[[largest_coding]]
+ambiguous_positions = colnames(coding_bools)[which(!(colSums(coding_bools) %in% c(0, length(kept))))]
+ambiguous_positions = ambiguous_positions[which(!(ambiguous_positions %in% names(coding_bools[largest_coding,])[which(coding_bools[largest_coding,] == 1)]))]
 for(ambi_pos in ambiguous_positions){
-	to_convert = min(which(coding_bools[kept,ambi_pos] == 1))
+	to_convert = min(which(coding_bools[,ambi_pos] == 1))[1]
 
 	final[,ambi_pos] = bmrs[[to_convert]][,ambi_pos]
 
 }
+
 if(all(colSums(final[1:14,]) == 0)){
 	write(paste("No sense protein regions found:\t", gene,"\t",ambiguousGeneNumber, sep=""), file=failedLog, append=T)
 	return(NULL)
 }
 if(is.null(ambiguousGeneNumber)){
-	write.table(final, file=paste(gene,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
+	write.table(final, file=paste(gene,".bmr", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
 }else{
-	write.table(final, file=paste(gene,".ambig",ambiguousGeneNumber,".bmr.csv", sep=""), row.names=F,col.names=c(paste(gene,":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
+	write.table(final, file=paste(gene,".ambig",ambiguousGeneNumber,".bmr", sep=""), row.names=F,col.names=c(paste(gene,".ambig",ambiguousGeneNumber, ":chr",subGenes[1,"Chrom"],":",intervalStart+1,"-",intervalEnd,sep=""),rep("",ncol(final)-1)), sep="",quote=F)
 }
 
 }
@@ -442,7 +451,7 @@ if(is.null(ambiguousGeneNumber)){
   
 results <- foreach (gene_index=1:length(genes_to_run), .packages=c('bedr', 'Biostrings'), .errorhandling="remove") %dopar% {
 	gene = genes_to_run[gene_index]
-	print(gene)
+	#print(gene)
 	write(gene, file=logFile, append=T)
 	subGenes = refGene[which(refGene$Gene == gene),]
 	if(nrow(subGenes) == 0){
