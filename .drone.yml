@@ -1,4 +1,5 @@
-build:
-	image: biomrpaul/bmr_creation_base
-	commands:
-		- Rscript faux_R_test.R	
+--- 
+build: 
+  commands: 
+    - "Rscript faux_R_test.R"
+  image: biomrpaul/bmr_creation_base
